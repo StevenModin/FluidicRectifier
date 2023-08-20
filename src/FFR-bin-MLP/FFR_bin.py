@@ -1,7 +1,8 @@
 # encoding == utf-8
-from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QTableWidgetItem
+from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox
 from Ui_toolkit import Ui_Form
 from MLP_model import Predictor
+import os
 import re
 import csv
 import util
@@ -17,10 +18,12 @@ class MyWindow(Ui_Form, QWidget):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-        self.ckptPath = "./resource/RFR-binary.ckpt"    # ckpt file path
-        self.csvPath = "./data/data.csv"                # csv file path
+        self.errorMsgHead = "<span style='color: red; font-weight: bold;'>"
+        self.errorMsgTail = "</span>"
+        self.ckptPath = "./resource/RFR-bin.ckpt"         # ckpt file path
+        # self.savePath = "./resource/RFR-bin-pred-res.csv" # csv default saving path
         self.singleData = [0, 0, 0, 0, 0, 0, 0]         # single data 
-        self.batchData = None                           # batch process data
+        self.batchData = []                             # batch process data
         self.batchResult = None                         # batch result data
         self.predModel = Predictor(self.ckptPath, self.noticeLabel_1)   # Predictor Object
         self.bind()
@@ -31,9 +34,11 @@ class MyWindow(Ui_Form, QWidget):
         self.pathButton_1.clicked.connect(lambda: self.getFilePath(self.loadModelWeights))
         self.pathButton_2.clicked.connect(lambda: self.getFilePath(self.loadBatchData))
         self.classButton.clicked.connect(lambda: self.singleClassification())
-        self.batchButton.clicked.connect(lambda: self.batchClassification())
         self.clearButton_1.clicked.connect(lambda: self.clear)
-
+        self.batchButton.clicked.connect(lambda: self.batchClassification())
+        self.saveButton.clicked.connect(lambda: self.saveFile(0))
+        self.saveToButton.clicked.connect(lambda: self.saveFile(1))
+        
     # define patterns
     # get model file path
     def loadModelWeights(self):
@@ -50,7 +55,7 @@ class MyWindow(Ui_Form, QWidget):
             self.pathEdit_1.setText("FILE PATH ERROR")
             self.pathEdit_1.setStyleSheet("")
             
-            self.noticeLabel_1.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: You must choose a ckpt file!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": You must choose a ckpt file!")
     
     # get csv file path
     def loadBatchData(self):
@@ -67,7 +72,7 @@ class MyWindow(Ui_Form, QWidget):
             self.pathEdit_2.setText("FILE PATH ERROR")
             self.pathEdit_2.setStyleSheet("")
 
-            self.noticeLabel_2.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: You must choose a csv file!")
+            self.noticeLabel_2.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": You must choose a csv file!")
 
     # import the file path
     def getFilePath(self, func):  
@@ -84,7 +89,7 @@ class MyWindow(Ui_Form, QWidget):
         
         # if cancelled
         else:
-            self.noticeLabel_1.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: Choose a file OR Load from default path")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": Choose a file OR Load from default path")
     
     # load the csv file to QTable widget
     def loadTable(self, filename):
@@ -94,13 +99,19 @@ class MyWindow(Ui_Form, QWidget):
             next(csv_reader)  # Skip the header row
             for row in csv_reader:
                 self.batchData.append([float(item) for item in row])
-            # print(data)
+            print("batchData = ")
+            print(self.batchData)
+            print(self.batchData.dtype)
         # tableWidget = QTableWidgetItem
         
-        for row_index, row_data in enumerate(self.batchData):
-            for col_index, cell_data in enumerate(row_data):
-                item = QTableWidgetItem(cell_data)
-                self.tableWidget.setItem(row_index, col_index, item)
+        # for row_index, row_data in enumerate(self.batchData):
+        #     for col_index, cell_data in enumerate(row_data):
+        #         item = QTableWidgetItem(cell_data)
+        #         self.tableWidget.setItem(row_index, col_index, item)
+
+        ########################################
+        #         LOAD TO QTableWidget         #
+        ########################################
 
 
     def getText(self, textEdit, idx):
@@ -114,7 +125,7 @@ class MyWindow(Ui_Form, QWidget):
     # run the model and get the result
     def singleClassification(self):
         if (self.predModel.ckptWeights == None):
-            self.noticeLabel_1.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: No ckpt file loaded!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": No ckpt file loaded!")
             return
         # get values from QText Widget
         ret1 = self.getText(self.lineEdit_1, 0)
@@ -128,7 +139,7 @@ class MyWindow(Ui_Form, QWidget):
         # ensure all the data are set to a valid number
         if (ret1 and ret2 and ret3 and ret4 and ret5 and ret6 and ret7):
             # do predict
-            predClass = self.predModel.predict([self.singleData])
+            predClass = self.predModel.predict([self.singleData], self.noticeLabel_1)
             print(f"predClass = {predClass}")
             number = predClass[0]
             print(f"number = {number}")
@@ -137,19 +148,69 @@ class MyWindow(Ui_Form, QWidget):
             else:
                 status = "Completely water-blocking"
             # display result
-            self.resultLabel.setText("<span style='color: red; font-weight: bold;'>" + status + "</span>")
+            self.resultLabel.setText(self.errorMsgHead + status + self.errorMsgTail)
         else:
-            self.noticeLabel_1.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: Input Error!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]</span>: Input Error!")
 
     def batchClassification(self):
         if (self.predModel.ckptWeights == None):
-            self.noticeLabel_1.setText("<span style='color: red; font-weight: bold;'>[NOTICE]</span>: No ckpt file loaded!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]</span>: No ckpt file loaded!")
             return
         print(f"csvData= {self.batchData}")
-        predClass = self.predModel.predict(self.batchData)
-        print(predClass)
-        if (predClass != )
+        self.batchResult = self.predModel.predict(self.batchData, self.noticeLabel_2)
+        self.noticeLabel_2.setText("Batch prediction succeed!")
+    
+    def defaultSavePath(self):
+        return "./resource/RFR-bin-pred-res.csv"
 
+    def selectSavePath(self):
+        # Prompt user to select a file path
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.AnyFile)
+        file_dialog.setNameFilter("CSV Files (*.csv)")
+        if file_dialog.exec_():
+            selectedFilePath = file_dialog.selectedFiles()[0]
+        return selectedFilePath
+
+    def saveFile(self, mode):
+        if (self.batchResult == None):
+            self.noticeLabel_2.setText(self.errorMsgHead + "No predition Result" + self.errorMsgTail)
+            return
+        
+        savePath = None
+
+        if mode == 0:
+            savePath = self.defaultSavePath()
+        elif mode == 1:
+            savePath = self.selectSavePath()
+
+        if savePath == None:
+            self.noticeLabel_2.setText(self.errorMsgHead + "File Path Error" + self.errorMsgTail)
+            return
+
+        # Convert int64 tensor to a list of Python integers
+        int_list = [int(value) for value in self.batchResult]
+
+        # Transpose the data to arrange it in a single column
+        transposed_data = [[value] for value in int_list]
+
+        with open(savePath, 'w', newline='') as file:
+                csv_writer = csv.writer(file)
+                csv_writer.writerows(transposed_data)
+
+        self.noticeLabel_2.setText(f"Data saved to: {savePath}")
+
+         # Check if the file already exists using Python's os.path.exists
+        if os.path.exists(savePath):
+            confirm_msg_box = QMessageBox(self)
+            confirm_msg_box.setIcon(QMessageBox.Question)
+            confirm_msg_box.setWindowTitle("Confirm Overwrite")
+            confirm_msg_box.setText(f"The file '{savePath}' already exists. Do you want to overwrite it?")
+            confirm_msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            confirm_response = confirm_msg_box.exec_()
+
+            if confirm_response == QMessageBox.No:
+                return
 
     def clear(self):
         self.resultLabel.setText("TBD.")
