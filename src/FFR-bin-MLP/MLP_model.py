@@ -47,8 +47,5 @@ class Predictor:
         else:
             callback(noticeObj, msg, False)
 
-        
         # print(checkPoint)
         
-
-

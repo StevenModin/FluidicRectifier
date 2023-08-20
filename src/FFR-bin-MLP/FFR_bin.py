@@ -1,5 +1,5 @@
 # encoding == utf-8
-from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox, QTableWidgetItem
 from Ui_toolkit import Ui_Form
 from MLP_model import Predictor
 import os
@@ -20,11 +20,10 @@ class MyWindow(Ui_Form, QWidget):
         self.setupUi(self)
         self.errorMsgHead = "<span style='color: red; font-weight: bold;'>"
         self.errorMsgTail = "</span>"
-        self.ckptPath = "./resource/RFR-bin.ckpt"         # ckpt file path
-        # self.savePath = "./resource/RFR-bin-pred-res.csv" # csv default saving path
-        self.singleData = [0, 0, 0, 0, 0, 0, 0]         # single data 
-        self.batchData = []                             # batch process data
-        self.batchResult = None                         # batch result data
+        self.ckptPath = "./resource/RFR-bin.ckpt"   # ckpt file path
+        self.singleData = [0, 0, 0, 0, 0, 0, 0]     # single data 
+        self.batchData = []                         # batch process data
+        self.batchResult = None                     # batch result data
         self.predModel = Predictor(self.ckptPath, self.noticeLabel_1)   # Predictor Object
         self.bind()
 
@@ -45,7 +44,9 @@ class MyWindow(Ui_Form, QWidget):
         # match the regex pattern
         if self.ckptPattern.match(self.ckptPath):
             self.pathEdit_1.setText(self.ckptPath)
-            # input path to predModel
+            # reset predModel to None
+            self.predModel.ckptWeights = None
+            # cal predModel method to load the model by path
             self.predModel.loadCkptFile(self.ckptPath, util.setQTextMsg, self.noticeLabel_1)
             print("model loaded")
             self.pathEdit_1.setReadOnly(True)
@@ -94,25 +95,26 @@ class MyWindow(Ui_Form, QWidget):
     # load the csv file to QTable widget
     def loadTable(self, filename):
         self.batchData = []
+        title = []
         with open(filename, 'r') as file:
             csv_reader = csv.reader(file)
-            next(csv_reader)  # Skip the header row
+            title = next(csv_reader)  # Skip the header row
+            print(title)
             for row in csv_reader:
                 self.batchData.append([float(item) for item in row])
             print("batchData = ")
             print(self.batchData)
-            print(self.batchData.dtype)
-        # tableWidget = QTableWidgetItem
-        
-        # for row_index, row_data in enumerate(self.batchData):
-        #     for col_index, cell_data in enumerate(row_data):
-        #         item = QTableWidgetItem(cell_data)
-        #         self.tableWidget.setItem(row_index, col_index, item)
 
-        ########################################
-        #         LOAD TO QTableWidget         #
-        ########################################
+        rows = len(self.batchData)
+        cols = len(self.batchData[0])
+        self.tableWidget.setRowCount(rows)
+        self.tableWidget.setColumnCount(cols)
 
+        for row in range(rows):
+            for col in range(cols):
+                item = QTableWidgetItem(str(self.batchData[row][col]))
+                self.tableWidget.setItem(row, col, item)
+        self.tableWidget.setHorizontalHeaderLabels(title)
 
     def getText(self, textEdit, idx):
         num_str = textEdit.text()
@@ -150,11 +152,11 @@ class MyWindow(Ui_Form, QWidget):
             # display result
             self.resultLabel.setText(self.errorMsgHead + status + self.errorMsgTail)
         else:
-            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]</span>: Input Error!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": Input Error!")
 
     def batchClassification(self):
         if (self.predModel.ckptWeights == None):
-            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]</span>: No ckpt file loaded!")
+            self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": No ckpt file loaded!")
             return
         print(f"csvData= {self.batchData}")
         self.batchResult = self.predModel.predict(self.batchData, self.noticeLabel_2)
