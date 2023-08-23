@@ -1,7 +1,7 @@
 # encoding == utf-8
 from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox, QTableWidgetItem
 from Ui_toolkit import Ui_Form
-from MLP_model import Predictor
+from FFR_model import RegFFR
 import os
 import re
 import csv
@@ -10,7 +10,7 @@ import util
 
 class MyWindow(Ui_Form, QWidget):
     # static variables
-    ckptPattern = re.compile(r".+\.ckpt$")
+    modelPattern = re.compile(r".+\.pth$")
     csvPattern = re.compile(r".+\.csv$")
     floatPattern = re.compile(r'^[-+]?[0-9]*\.?[0-9]+$')
     
@@ -20,11 +20,11 @@ class MyWindow(Ui_Form, QWidget):
         self.setupUi(self)
         self.errorMsgHead = "<span style='color: red; font-weight: bold;'>"
         self.errorMsgTail = "</span>"
-        self.ckptPath = "./resource/RFR-bin.ckpt"   # ckpt file path
+        self.weightsPath = "./resource/FFR.pth"     # weight file path
         self.singleData = [0, 0, 0, 0, 0, 0, 0]     # single data 
         self.batchData = []                         # batch process data
         self.batchResult = None                     # batch result data
-        self.predModel = Predictor(self.ckptPath, self.noticeLabel_1)   # Predictor Object
+        self.regModel = RegFFR(self.weightsPath, self.noticeLabel_1)   # Predictor Object
         self.bind()
 
 
@@ -33,7 +33,7 @@ class MyWindow(Ui_Form, QWidget):
         self.pathButton_1.clicked.connect(lambda: self.getFilePath(self.loadModelWeights))
         self.pathButton_2.clicked.connect(lambda: self.getFilePath(self.loadBatchData))
         self.classButton.clicked.connect(lambda: self.singleClassification())
-        self.clearButton_1.clicked.connect(lambda: self.clear)
+        self.clearButton_1.clicked.connect(lambda: self.clear())
         self.batchButton.clicked.connect(lambda: self.batchClassification())
         self.saveButton.clicked.connect(lambda: self.saveFile(0))
         self.saveToButton.clicked.connect(lambda: self.saveFile(1))
@@ -42,12 +42,12 @@ class MyWindow(Ui_Form, QWidget):
     # get model file path
     def loadModelWeights(self):
         # match the regex pattern
-        if self.ckptPattern.match(self.ckptPath):
-            self.pathEdit_1.setText(self.ckptPath)
-            # reset predModel to None
-            self.predModel.ckptWeights = None
-            # cal predModel method to load the model by path
-            self.predModel.loadCkptFile(self.ckptPath, util.setQTextMsg, self.noticeLabel_1)
+        if self.modelPattern.match(self.weightsPath):
+            self.pathEdit_1.setText(self.weightsPath)
+            # reset regModel to None
+            self.regModel.weights = None
+            # cal regModel method to load the model by path
+            self.regModel.loadFile(self.weightsPath, util.setQTextMsg, self.noticeLabel_1)
             print("model loaded")
             self.pathEdit_1.setReadOnly(True)
             
@@ -61,10 +61,10 @@ class MyWindow(Ui_Form, QWidget):
     # get csv file path
     def loadBatchData(self):
         # match the regex pattern
-        if self.csvPattern.match(self.ckptPath):
-            self.pathEdit_2.setText(self.ckptPath)
+        if self.csvPattern.match(self.weightsPath):
+            self.pathEdit_2.setText(self.weightsPath)
             self.noticeLabel_2.setText("csv file loaded successfully!")
-            self.loadTable(self.ckptPath)
+            self.loadTable(self.weightsPath)
             print("csv loaded")
             self.pathEdit_2.setReadOnly(True)
         else:
@@ -85,7 +85,7 @@ class MyWindow(Ui_Form, QWidget):
         if file_dialog.exec():
             selected_files = file_dialog.selectedFiles()
             file_path = selected_files[0]
-            self.ckptPath = str(file_path)
+            self.weightsPath = str(file_path)
             func()
         
         # if cancelled
@@ -126,7 +126,7 @@ class MyWindow(Ui_Form, QWidget):
 
     # run the model and get the result
     def singleClassification(self):
-        if (self.predModel.ckptWeights == None):
+        if (self.regModel.weights == None):
             self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": No ckpt file loaded!")
             return
         # get values from QText Widget
@@ -140,30 +140,27 @@ class MyWindow(Ui_Form, QWidget):
 
         # ensure all the data are set to a valid number
         if (ret1 and ret2 and ret3 and ret4 and ret5 and ret6 and ret7):
-            # do predict
-            predClass = self.predModel.predict([self.singleData], self.noticeLabel_1)
-            print(f"predClass = {predClass}")
-            number = predClass[0]
+            # do regression
+            regClass = self.regModel.forward([self.singleData], self.noticeLabel_1)
+            print(f"regClass = {regClass}")
+            number = regClass.item()
             print(f"number = {number}")
-            if predClass:
-                status = "Water-permeable"
-            else:
-                status = "Completely water-blocking"
             # display result
-            self.resultLabel.setText(self.errorMsgHead + status + self.errorMsgTail)
+            self.resultLabel.setText(str(number))
         else:
             self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": Input Error!")
 
     def batchClassification(self):
-        if (self.predModel.ckptWeights == None):
+        if (self.regModel.weights == None):
             self.noticeLabel_1.setText(self.errorMsgHead + "[NOTICE]" + self.errorMsgTail + ": No ckpt file loaded!")
             return
         print(f"csvData= {self.batchData}")
-        self.batchResult = self.predModel.predict(self.batchData, self.noticeLabel_2)
-        self.noticeLabel_2.setText("Batch prediction succeed!")
+        self.batchResult = self.regModel.forward(self.batchData, self.noticeLabel_2)
+        print(self.batchResult)
+        self.noticeLabel_2.setText("Batch Regression succeed!")
     
     def defaultSavePath(self):
-        return "./resource/RFR-bin-pred-res.csv"
+        return "./resource/FFR-bin-reg-res.csv"
 
     def selectSavePath(self):
         # Prompt user to select a file path
@@ -176,7 +173,7 @@ class MyWindow(Ui_Form, QWidget):
 
     def saveFile(self, mode):
         if (self.batchResult == None):
-            self.noticeLabel_2.setText(self.errorMsgHead + "No predition Result" + self.errorMsgTail)
+            self.noticeLabel_2.setText(self.errorMsgHead + "No regression Result" + self.errorMsgTail)
             return
         
         savePath = None
@@ -190,11 +187,11 @@ class MyWindow(Ui_Form, QWidget):
             self.noticeLabel_2.setText(self.errorMsgHead + "File Path Error" + self.errorMsgTail)
             return
 
-        # Convert int64 tensor to a list of Python integers
-        int_list = [int(value) for value in self.batchResult]
+        # Convert tensor to a list of Python integers
+        floatList = [float(value) for value in self.batchResult]
 
         # Transpose the data to arrange it in a single column
-        transposed_data = [[value] for value in int_list]
+        transposed_data = [[value] for value in floatList]
 
         with open(savePath, 'w', newline='') as file:
                 csv_writer = csv.writer(file)
