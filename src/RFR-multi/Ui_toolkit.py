@@ -239,7 +239,7 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"FFR Regression Tool", None))
+        Form.setWindowTitle(QCoreApplication.translate("Form", u"RFR multi-classification Tool", None))
         self.TitleLable.setText(QCoreApplication.translate("Form", u"Single Group Data Process", None))
         self.pathEdit_1.setText(QCoreApplication.translate("Form", u"add a file or load from default path", None))
         self.pathButton_1.setText(QCoreApplication.translate("Form", u"...", None))

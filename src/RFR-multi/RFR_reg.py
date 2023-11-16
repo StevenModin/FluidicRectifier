@@ -1,5 +1,5 @@
 # encoding == utf-8
-from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox, QTableWidgetItem
+from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QTableWidgetItem
 from Ui_toolkit import Ui_Form
 from RFR_multiple_model import MultiRFR
 import re
@@ -25,7 +25,7 @@ class MyWindow(Ui_Form, QWidget):
         # auto load model file
         notice = self.multiModel.loadModel(self.modelPath)
         self.noticeLabel_1.setText(notice)
-        self.pathEdit_1.setText("load from default path...")
+        self.pathEdit_1.setText("file loaded from the default path.")
         self.bind()
 
 
@@ -40,7 +40,6 @@ class MyWindow(Ui_Form, QWidget):
         self.saveToButton.clicked.connect(lambda: self.saveFile(1))
         self.clearButton_2.clicked.connect(lambda: self.clearAll())
         
-    # define patterns
     # get model file path
     def loadModel(self):
         # match the regex pattern
@@ -147,7 +146,7 @@ class MyWindow(Ui_Form, QWidget):
 
             # display result
             print(f"value={self.multiModel.value[0][0]}")
-            self.resultLabel.setText(self.multiModel.value[0][0])
+            self.resultLabel.setText(str(self.multiModel.value[0][0]))
 
             self.noticeLabel_1.setText(resMsg)
         else:

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>FFR Regression Tool</string>
+   <string>RFR multi-classification Tool</string>
   </property>
   <property name="windowIcon">
    <iconset>
